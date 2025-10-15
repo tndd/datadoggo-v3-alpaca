@@ -1,5 +1,6 @@
 # datadoggo-v3-alpaca
 alpaca sdkを利用してヒストリカルデータを取得し、永続化および将来的なAPI化を行うための設計ドキュメント。
+ちなみにpostgresはdocker上のpostgres-dockerコンテナを前提とした設計です。
 
 ## 目的と背景
 - AlpacaのMarket Data APIから株式・暗号資産・オプション・ニュースのヒストリカルデータを取得し、継続的に分析・監視に活用できる形で保存する。citeturn0search1
@@ -52,13 +53,13 @@ alpaca sdkを利用してヒストリカルデータを取得し、永続化お�
 6. 成功/失敗ログ・メトリクス送信：構築予定の監視基盤（例: Datadog）へメトリクス送信するインタフェースを残す。
 
 ## スキーマ設計（案）
-| テーブル | 主キー | 主なカラム | 備考 |
-| --- | --- | --- | --- |
-| `stock_bars` | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `trade_count`, `vw` | bars基準。timeframeは`alpaca.data.timeframe.TimeFrame`を文字列化。 |
-| `crypto_bars` | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `trade_count`, `vw` | Crypto固有で`exchange`や`isotimestamp`を保持。 |
-| `option_bars` | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `open_interest`, `underlying_symbol` | オプションは契約情報を別テーブル`option_contracts`で正規化予定。 |
-| `news_articles` | (`id`) | `headline`, `summary`, `url`, `author`, `symbols`, `created_at`, `updated_at`, `source` | Alpaca News APIのレスポンスIDを主キー化。 |
-| `option_contracts` | (`symbol`) | `expiration`, `strike`, `type`, `multiplier`, `root_symbol` | オプション仕様情報を格納。 |
+| テーブル           | 主キー                               | 主なカラム                                                                              | 備考                                                               |
+| ------------------ | ------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `stock_bars`       | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `trade_count`, `vw`                           | bars基準。timeframeは`alpaca.data.timeframe.TimeFrame`を文字列化。 |
+| `crypto_bars`      | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `trade_count`, `vw`                           | Crypto固有で`exchange`や`isotimestamp`を保持。                     |
+| `option_bars`      | (`symbol`, `timestamp`, `timeframe`) | `open`, `high`, `low`, `close`, `volume`, `open_interest`, `underlying_symbol`          | オプションは契約情報を別テーブル`option_contracts`で正規化予定。   |
+| `news_articles`    | (`id`)                               | `headline`, `summary`, `url`, `author`, `symbols`, `created_at`, `updated_at`, `source` | Alpaca News APIのレスポンスIDを主キー化。                          |
+| `option_contracts` | (`symbol`)                           | `expiration`, `strike`, `type`, `multiplier`, `root_symbol`                             | オプション仕様情報を格納。                                         |
 
 ※初期リリースではbars中心に保存し、trades/quotesは必要に応じてテーブルを拡張する。
 

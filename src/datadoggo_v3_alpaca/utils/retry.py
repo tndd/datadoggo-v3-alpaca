@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+import asyncio
 from typing import Any, Callable
 
 from alpaca.common.exceptions import APIError
@@ -129,7 +129,7 @@ def alpaca_retry_async(func: Callable[..., Any]) -> Callable[..., Any]:
                     exception=str(e),
                 )
 
-                time.sleep(actual_wait)
+                await asyncio.sleep(actual_wait)
 
         raise RuntimeError("Unreachable code")  # pragma: no cover
 

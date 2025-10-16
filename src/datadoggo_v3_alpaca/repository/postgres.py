@@ -9,7 +9,7 @@ from typing import Any, Sequence, cast
 
 import pandas as pd
 from pandas import DataFrame, isna
-from sqlalchemy import Table
+from sqlalchemy import Table, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -57,6 +57,7 @@ class PostgresRepository:
     async def ensure_schema(self) -> None:
         """必要なテーブルを作成する."""
         async with self._engine.begin() as connection:
+            await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {tables.SCHEMA_NAME}"))
             await connection.run_sync(tables.metadata.create_all)
         logger.info("ensure_schema_completed")
 

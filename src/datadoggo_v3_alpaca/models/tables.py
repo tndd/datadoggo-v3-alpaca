@@ -18,7 +18,9 @@ from sqlalchemy import (
     func,
 )
 
-metadata = MetaData()
+SCHEMA_NAME = "alpaca"
+
+metadata = MetaData(schema=SCHEMA_NAME)
 
 stock_bars = Table(  # type: ignore[arg-type]
     "stock_bars",

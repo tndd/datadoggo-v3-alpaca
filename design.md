@@ -38,7 +38,7 @@ alpaca sdkを利用してヒストリカルデータを取得し、永続化お�
 - `fetchers/`  
   各資産クラス別に`fetch_***`関数を提供。AlpacaのRequestオブジェクトを受け取り、DataFrameへ変換。
 - `repository/postgres.py`  
-  SQLAlchemy Coreを介したバルクUpsert処理とスナップショット管理。共通でタイムスタンプ・ソース情報を保持。
+  SQLAlchemy Coreを介したバルクUpsert処理とスナップショット管理。共通でタイムスタンプ・ソース情報を保持。テーブルはPostgreSQLの`alpaca`スキーマに集約する。
 - `services/historical.py`  
   フロー制御を担うサービス層。フェッチ→検証→保存→ログまでを一連で実行し、後続のAPI層・スケジューラから呼び出せる形に整える。
 - `tasks/`  

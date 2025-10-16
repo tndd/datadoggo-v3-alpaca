@@ -32,7 +32,7 @@ alpaca sdkを利用してヒストリカルデータを取得し、永続化お�
 ## アーキテクチャ概要
 ### コンポーネント
 - `config/settings.py`  
-  環境変数/APIキー/データ取得パラメータ（シンボル、期間、タイムフレーム、保存先テーブルなど）を集中管理。
+  環境変数/APIキー/データ取得パラメータ（シンボル、期間、タイムフレーム、保存先テーブルなど）を集中管理。`ENVIRONMENT` 環境変数で接続先DB（TEST/ STG/ PROD など）を切り替え、未指定時はTESTを利用する。
 - `clients/alpaca.py`  
   Alpaca SDKクライアント生成（Stock/Crypto/Option `HistoricalDataClient`、`NewsClient`）。APIキーは環境変数から注入。citeturn1search1
 - `fetchers/`  

@@ -22,8 +22,8 @@ async def test_upsert_bars_inserts_and_updates() -> None:
     repository = PostgresRepository(database_url)
     try:
         await repository.ensure_schema()
-    except asyncpg.InvalidCatalogNameError:
-        pytest.skip("テスト用データベースが存在しないためスキップ")
+    except (asyncpg.InvalidCatalogNameError, asyncpg.InvalidPasswordError, ConnectionRefusedError):
+        pytest.skip("テスト用データベースに接続できないためスキップ")
 
     dataframe = pd.DataFrame(
         {

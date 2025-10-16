@@ -121,6 +121,60 @@ class PostgresRepository:
         logger.info("upsert_news_completed", rows=len(records))
         return len(records)
 
+    async def upsert_assets(self, dataframe: DataFrame) -> int:
+        """アセット（株式・暗号資産）マスタをUPSERTする."""
+        if dataframe.empty:
+            return 0
+
+        payload = dataframe.copy()
+        if "ingested_at" not in payload.columns:
+            payload["ingested_at"] = datetime.now(timezone.utc)
+
+        records = _to_records(payload)
+        table = tables.assets
+        statement = pg_insert(table).values(records)
+        update_columns = {
+            column.name: getattr(statement.excluded, column.name)
+            for column in table.c
+            if column.name != "id"
+        }
+        async with self._engine.begin() as connection:
+            await connection.execute(
+                statement.on_conflict_do_update(
+                    index_elements=[table.c["id"]],
+                    set_=update_columns,
+                )
+            )
+        logger.info("upsert_assets_completed", rows=len(records))
+        return len(records)
+
+    async def upsert_option_contracts(self, dataframe: DataFrame) -> int:
+        """オプション契約マスタをUPSERTする."""
+        if dataframe.empty:
+            return 0
+
+        payload = dataframe.copy()
+        if "ingested_at" not in payload.columns:
+            payload["ingested_at"] = datetime.now(timezone.utc)
+
+        records = _to_records(payload)
+        table = tables.option_contracts
+        statement = pg_insert(table).values(records)
+        update_columns = {
+            column.name: getattr(statement.excluded, column.name)
+            for column in table.c
+            if column.name != "id"
+        }
+        async with self._engine.begin() as connection:
+            await connection.execute(
+                statement.on_conflict_do_update(
+                    index_elements=[table.c["id"]],
+                    set_=update_columns,
+                )
+            )
+        logger.info("upsert_option_contracts_completed", rows=len(records))
+        return len(records)
+
     async def dispose(self) -> None:
         """Engineをクリーンアップする."""
         await self._engine.dispose()

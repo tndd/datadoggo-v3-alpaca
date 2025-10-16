@@ -10,6 +10,7 @@ from alpaca.data.historical import (
     OptionHistoricalDataClient,
     StockHistoricalDataClient,
 )
+from alpaca.trading.client import TradingClient
 
 from datadoggo_v3_alpaca.config.settings import Settings, get_settings
 
@@ -29,6 +30,7 @@ class AlpacaClientFactory:
         self._crypto_client: CryptoHistoricalDataClient | None = None
         self._option_client: OptionHistoricalDataClient | None = None
         self._news_client: NewsClient | None = None
+        self._trading_client: TradingClient | None = None
 
     def stock(self) -> StockHistoricalDataClient:
         """株式ヒストリカルデータクライアントを返す."""
@@ -69,3 +71,10 @@ class AlpacaClientFactory:
             api_key, secret_key = _credentials(self._settings)
             self._news_client = NewsClient(api_key=api_key, secret_key=secret_key)
         return self._news_client
+
+    def trading(self) -> TradingClient:
+        """TradingAPIクライアントを返す（アセットやオプション契約の取得に使用）."""
+        if self._trading_client is None:
+            api_key, secret_key = _credentials(self._settings)
+            self._trading_client = TradingClient(api_key=api_key, secret_key=secret_key)
+        return self._trading_client

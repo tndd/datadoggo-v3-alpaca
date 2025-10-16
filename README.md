@@ -1,6 +1,6 @@
 # datadoggo-v3-alpaca
 
-Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション・ニュースのヒストリカルデータを取得し、PostgreSQL (`alpaca` スキーマ) へ保存するツール群です。バッチ実行や将来的なAPI化を見据えて、取得→整形→UPSERTまでをサービスレイヤで統一しています。
+Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション・ニュースのヒストリカルデータ、およびアセットマスタ・オプション契約マスタを取得し、PostgreSQL (`alpaca` スキーマ) へ保存するツール群です。バッチ実行や将来的なAPI化を見据えて、取得→整形→UPSERTまでをサービスレイヤで統一しています。
 
 ## セットアップ
 1. `.env.example` をコピーして `.env` を作成する
@@ -11,6 +11,8 @@ Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション�
 3. Postgresコンテナ (`postgres-docker`) を起動し、必要なら `personal_tracker_test` などのDBを作成
 
 ## 使い方
+
+### ヒストリカルデータの取得
 - 株式バー取得の例:
   ```bash
   uv run python -m datadoggo_v3_alpaca \
@@ -23,7 +25,36 @@ Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション�
   ```bash
   ENVIRONMENT=STG uv run python -m datadoggo_v3_alpaca --kind crypto --symbols BTC/USD --timeframe 1Hour
   ```
-- 実行すると対象データが整形され、PostgreSQLの `alpaca` スキーマ配下へUPSERTされます。
+
+### シンボルリスト（マスタ）の同期
+Alpaca公式推奨: アセットマスタは毎朝8:20 AM ET以降に1回更新すれば十分
+
+- 全アセット（株式・暗号資産）を取得:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca --kind sync-assets --asset-class all
+  ```
+- 株式のみ取得:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca --kind sync-assets --asset-class us_equity
+  ```
+- 暗号資産のみ取得:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca --kind sync-assets --asset-class crypto
+  ```
+- 特定銘柄のオプション契約リストを取得:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca --kind sync-options --symbols AAPL,SPY
+  ```
+- 満期日でフィルタリングしてオプション契約を取得:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca \
+      --kind sync-options \
+      --symbols AAPL \
+      --expiration-gte 2025-01-01 \
+      --expiration-lte 2025-12-31
+  ```
+
+実行すると対象データが整形され、PostgreSQLの `alpaca` スキーマ配下へUPSERTされます。
 
 ## 設定のポイント
 - `ENVIRONMENT` を指定しない場合は自動的に `TEST` とみなし、`DATABASE_URL_TEST` の内容が利用されます

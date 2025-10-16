@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from sqlalchemy import (
     ARRAY,
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -21,6 +22,29 @@ from sqlalchemy import (
 SCHEMA_NAME = "alpaca"
 
 metadata = MetaData(schema=SCHEMA_NAME)
+
+assets = Table(  # type: ignore[arg-type]
+    "assets",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("asset_class", String(16), nullable=False),
+    Column("exchange", String(32), nullable=False),
+    Column("symbol", String(64), nullable=False),
+    Column("name", String(256), nullable=True),
+    Column("status", String(16), nullable=False),
+    Column("tradable", Boolean, nullable=False),
+    Column("marginable", Boolean, nullable=True),
+    Column("shortable", Boolean, nullable=True),
+    Column("easy_to_borrow", Boolean, nullable=True),
+    Column("fractionable", Boolean, nullable=True),
+    Column("options_enabled", Boolean, nullable=True),
+    Column("maintenance_margin_requirement", Numeric(10, 6), nullable=True),
+    Column("min_order_size", String(32), nullable=True),
+    Column("min_trade_increment", String(32), nullable=True),
+    Column("price_increment", String(32), nullable=True),
+    Column("source", String(32), nullable=False, default="alpaca"),
+    Column("ingested_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
 
 stock_bars = Table(  # type: ignore[arg-type]
     "stock_bars",
@@ -60,12 +84,24 @@ crypto_bars = Table(  # type: ignore[arg-type]
 option_contracts = Table(  # type: ignore[arg-type]
     "option_contracts",
     metadata,
-    Column("symbol", String(64), primary_key=True),
-    Column("expiration", Date, nullable=False),
-    Column("strike", Numeric(18, 4), nullable=False),
+    Column("id", String(64), primary_key=True),
+    Column("symbol", String(64), nullable=False, unique=True),
+    Column("name", String(128), nullable=True),
+    Column("status", String(16), nullable=False),
+    Column("tradable", Boolean, nullable=False),
+    Column("expiration_date", Date, nullable=False),
+    Column("root_symbol", String(32), nullable=False),
+    Column("underlying_symbol", String(32), nullable=False),
+    Column("underlying_asset_id", String(64), nullable=True),
     Column("type", String(8), nullable=False),
-    Column("multiplier", Integer, nullable=True),
-    Column("root_symbol", String(32), nullable=True),
+    Column("style", String(16), nullable=True),
+    Column("strike_price", Numeric(18, 4), nullable=False),
+    Column("multiplier", String(16), nullable=True),
+    Column("size", Integer, nullable=True),
+    Column("open_interest", Integer, nullable=True),
+    Column("open_interest_date", Date, nullable=True),
+    Column("close_price", Numeric(18, 4), nullable=True),
+    Column("close_price_date", Date, nullable=True),
     Column("source", String(32), nullable=False, default="alpaca"),
     Column("ingested_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )

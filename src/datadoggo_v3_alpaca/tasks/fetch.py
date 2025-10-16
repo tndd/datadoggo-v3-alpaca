@@ -20,6 +20,7 @@ from datadoggo_v3_alpaca.clients.alpaca import AlpacaClientFactory
 from datadoggo_v3_alpaca.config.settings import Settings, get_settings
 from datadoggo_v3_alpaca.repository.postgres import PostgresRepository
 from datadoggo_v3_alpaca.services.historical import HistoricalIngestionService
+from datadoggo_v3_alpaca.services.symbol_sync import SymbolSyncService
 from datadoggo_v3_alpaca.utils.logger import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -130,22 +131,45 @@ def build_news_request(settings: Settings, args: argparse.Namespace) -> NewsRequ
 async def execute_task(kind: str, settings: Settings, args: argparse.Namespace) -> int:
     """指定kindに応じて取得処理を実行する."""
     repository = PostgresRepository(settings.async_database_url)
-    service = HistoricalIngestionService(repository, AlpacaClientFactory(settings), settings)
+    client_factory = AlpacaClientFactory(settings)
     await repository.ensure_schema()
 
     try:
-        if kind == "stock":
-            request = build_stock_request(settings, args)
-            return await service.ingest_stock(request)
-        if kind == "crypto":
-            request = build_crypto_request(settings, args)
-            return await service.ingest_crypto(request)
-        if kind == "option":
-            request = build_option_request(settings, args)
-            return await service.ingest_option(request)
-        if kind == "news":
-            request = build_news_request(settings, args)
-            return await service.ingest_news(request)
+        # ヒストリカルデータ取得
+        if kind in ("stock", "crypto", "option", "news"):
+            service = HistoricalIngestionService(repository, client_factory, settings)
+            if kind == "stock":
+                request = build_stock_request(settings, args)
+                return await service.ingest_stock(request)
+            if kind == "crypto":
+                request = build_crypto_request(settings, args)
+                return await service.ingest_crypto(request)
+            if kind == "option":
+                request = build_option_request(settings, args)
+                return await service.ingest_option(request)
+            if kind == "news":
+                request = build_news_request(settings, args)
+                return await service.ingest_news(request)
+
+        # シンボルリスト同期
+        if kind == "sync-assets":
+            sync_service = SymbolSyncService(repository, client_factory, settings)
+            asset_class = getattr(args, "asset_class", None)
+            return await sync_service.sync_assets(asset_class)
+
+        if kind == "sync-options":
+            sync_service = SymbolSyncService(repository, client_factory, settings)
+            symbols = split_symbols(args.symbols)
+            if not symbols:
+                raise ValueError("オプション契約同期には--symbolsが必須です")
+            expiration_gte = getattr(args, "expiration_gte", None)
+            expiration_lte = getattr(args, "expiration_lte", None)
+            return await sync_service.sync_option_contracts(
+                underlying_symbols=symbols,
+                expiration_date_gte=expiration_gte,
+                expiration_date_lte=expiration_lte,
+            )
+
         raise ValueError(f"未対応のkindです: {kind}")
     finally:
         await repository.dispose()
@@ -153,7 +177,12 @@ async def execute_task(kind: str, settings: Settings, args: argparse.Namespace) 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Alpacaヒストリカルデータ取得タスク")
-    parser.add_argument("--kind", choices=["stock", "crypto", "option", "news"], required=True)
+    parser.add_argument(
+        "--kind",
+        choices=["stock", "crypto", "option", "news", "sync-assets", "sync-options"],
+        required=True,
+        help="実行するタスクの種類",
+    )
     parser.add_argument("--symbols", help="カンマ区切りのシンボルリスト")
     parser.add_argument("--timeframe", default="1Day", help="例: 1Day / 1Hour / 5Min")
     parser.add_argument("--start", help="ISO8601形式の開始日時 (例: 2024-01-01T00:00:00+00:00)")
@@ -161,6 +190,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument("--include-content", action="store_true", dest="include_content")
     parser.add_argument("--exclude-contentless", action="store_true", dest="exclude_contentless")
+
+    # sync-assets用オプション
+    parser.add_argument(
+        "--asset-class",
+        choices=["us_equity", "crypto", "all"],
+        help="sync-assets使用時: 取得するアセットクラス",
+    )
+
+    # sync-options用オプション
+    parser.add_argument("--expiration-gte", dest="expiration_gte", help="満期日の下限 (YYYY-MM-DD)")
+    parser.add_argument("--expiration-lte", dest="expiration_lte", help="満期日の上限 (YYYY-MM-DD)")
+
     return parser
 
 

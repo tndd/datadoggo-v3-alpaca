@@ -12,16 +12,18 @@ from alpaca.trading.requests import GetAssetsRequest
 from pandas import DataFrame
 
 from datadoggo_v3_alpaca.utils.logger import get_logger
+from datadoggo_v3_alpaca.utils.retry import alpaca_retry
 
 logger = get_logger(__name__)
 
 
+@alpaca_retry
 def fetch_assets(
     client: TradingClient,
     request: GetAssetsRequest | None = None,
 ) -> DataFrame:
     """
-    指定された条件でアセットリストを取得する.
+    指定された条件でアセットリストを取得する（レート制限時は自動リトライ）.
 
     Parameters
     ----------

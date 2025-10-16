@@ -11,15 +11,17 @@ from pandas import DataFrame
 
 from datadoggo_v3_alpaca.fetchers._base import prepare_bars_dataframe
 from datadoggo_v3_alpaca.utils.logger import get_logger
+from datadoggo_v3_alpaca.utils.retry import alpaca_retry
 
 logger = get_logger(__name__)
 
 
+@alpaca_retry
 def fetch_option_historical(
     client: OptionHistoricalDataClient,
     request: OptionBarsRequest,
 ) -> DataFrame:
-    """指定された条件でオプションバーを取得する."""
+    """指定された条件でオプションバーを取得する（レート制限時は自動リトライ）."""
     logger.info(
         "fetch_option_historical_start",
         symbols=request.symbol_or_symbols,

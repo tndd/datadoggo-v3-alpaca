@@ -11,15 +11,17 @@ from pandas import DataFrame
 
 from datadoggo_v3_alpaca.fetchers._base import prepare_bars_dataframe
 from datadoggo_v3_alpaca.utils.logger import get_logger
+from datadoggo_v3_alpaca.utils.retry import alpaca_retry
 
 logger = get_logger(__name__)
 
 
+@alpaca_retry
 def fetch_crypto_historical(
     client: CryptoHistoricalDataClient,
     request: CryptoBarsRequest,
 ) -> DataFrame:
-    """指定された条件で暗号資産バーを取得する."""
+    """指定された条件で暗号資産バーを取得する（レート制限時は自動リトライ）."""
     logger.info(
         "fetch_crypto_historical_start",
         symbols=request.symbol_or_symbols,

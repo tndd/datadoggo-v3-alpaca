@@ -12,16 +12,18 @@ from alpaca.trading.requests import GetOptionContractsRequest
 from pandas import DataFrame
 
 from datadoggo_v3_alpaca.utils.logger import get_logger
+from datadoggo_v3_alpaca.utils.retry import alpaca_retry
 
 logger = get_logger(__name__)
 
 
+@alpaca_retry
 def fetch_option_contracts(
     client: TradingClient,
     request: GetOptionContractsRequest,
 ) -> DataFrame:
     """
-    指定された条件でオプション契約リストを取得する.
+    指定された条件でオプション契約リストを取得する（レート制限時は自動リトライ）.
 
     Parameters
     ----------

@@ -12,6 +12,7 @@ from pandas import DataFrame
 
 from datadoggo_v3_alpaca.fetchers._base import ensure_timezone
 from datadoggo_v3_alpaca.utils.logger import get_logger
+from datadoggo_v3_alpaca.utils.retry import alpaca_retry
 
 logger = get_logger(__name__)
 
@@ -33,11 +34,12 @@ def _default_source(value: object) -> str:
     return str(value)
 
 
+@alpaca_retry
 def fetch_news_articles(
     client: NewsClient,
     request: NewsRequest,
 ) -> DataFrame:
-    """指定された条件でニュースを取得する."""
+    """指定された条件でニュースを取得する（レート制限時は自動リトライ）."""
     logger.info(
         "fetch_news_articles_start",
         symbols=request.symbols,

@@ -1,4 +1,4 @@
-"""アプリケーション全体の設定値読み込みロジック."""
+"""アプリケーション全体の設定を管理するモジュール."""
 
 from __future__ import annotations
 
@@ -10,18 +10,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _split_comma_separated(value: str | Iterable[str] | None) -> list[str]:
-    """カンマ区切り文字列を安全にリストへ変換するヘルパー."""
+    """カンマ区切り文字列をリスト化する."""
     if value is None:
         return []
     if isinstance(value, str):
         if not value.strip():
             return []
-        return [chunk.strip() for chunk in value.split(",") if chunk.strip()]
-    return [item.strip() for item in value if item]
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 class Settings(BaseSettings):
-    """環境変数から動的に読み込まれる設定値."""
+    """環境変数から読み込む設定値."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -30,15 +30,26 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    environment: str = Field(default="TEST", validation_alias=AliasChoices("ENVIRONMENT", "environment"))
+    # ENVIRONMENTを指定しない場合はTEST扱い
+    environment: str | None = Field(default=None, validation_alias=AliasChoices("ENVIRONMENT", "environment"))
 
-    database_url_test: PostgresDsn = Field(validation_alias=AliasChoices("DATABASE_URL_TEST", "DATABASE_URL"))
-    database_url_stg: PostgresDsn | None = Field(default=None, validation_alias=AliasChoices("DATABASE_URL_STG", "DATABASE_URL_STAGE"))
-    database_url_prod: PostgresDsn | None = Field(default=None, validation_alias=AliasChoices("DATABASE_URL_PROD", "DATABASE_URL_PRODUCTION"))
+    # 接続情報(DATABASE_URL_TESTが必須。DATABASE_URLでの指定にも対応)
+    database_url_test: PostgresDsn | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_URL_TEST", "DATABASE_URL"),
+    )
+    database_url_stg: PostgresDsn | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_URL_STG", "DATABASE_URL_STAGE"),
+    )
+    database_url_prod: PostgresDsn | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_URL_PROD", "DATABASE_URL_PRODUCTION"),
+    )
 
     alpaca_api_key: SecretStr | None = None
     alpaca_secret_key: SecretStr | None = None
-    alpaca_data_base_url: str = Field("https://data.alpaca.markets")
+    alpaca_data_base_url: str = Field(default="https://data.alpaca.markets")
 
     default_stock_symbols: list[str] = Field(default_factory=list)
     default_crypto_symbols: list[str] = Field(default_factory=list)
@@ -56,18 +67,16 @@ class Settings(BaseSettings):
     def _split_values(cls, value: Any) -> list[str]:
         return _split_comma_separated(value)
 
-    @field_validator("environment", mode="before")
-    @classmethod
-    def _normalize_environment(cls, value: Any) -> str:
-        if value is None:
+    @property
+    def effective_environment(self) -> str:
+        """ENVIRONMENT未指定時はTESTを返す."""
+        if self.environment is None:
             return "TEST"
-        if isinstance(value, str):
-            normalized = value.strip().upper()
-            return normalized or "TEST"
-        raise ValueError("ENVIRONMENTは文字列で指定してください。")
+        normalized = self.environment.strip().upper()
+        return normalized or "TEST"
 
     def _database_url_for(self, environment: str | None = None) -> PostgresDsn:
-        env = (environment or self.environment).upper()
+        env = (environment or self.effective_environment).upper()
         mapping: dict[str, PostgresDsn | None] = {
             "TEST": self.database_url_test,
             "STG": self.database_url_stg,
@@ -75,7 +84,7 @@ class Settings(BaseSettings):
         }
         dsn = mapping.get(env)
         if dsn is None:
-            raise ValueError(f"ENVIRONMENTに対応する接続先が未設定です: {env}")
+            raise ValueError(f"ENVIRONMENTに対応するDATABASE_URLが未設定です: {env}")
         return dsn
 
     @staticmethod
@@ -88,29 +97,25 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """現在のENVIRONMENTに対応する同期接続文字列."""
+        """同期接続用のDSN (ENVIRONMENTに応じて切り替え)."""
         return str(self._database_url_for())
 
     @property
     def async_database_url(self) -> str:
-        """SQLAlchemy AsyncEngine向けの接続文字列を返す."""
+        """AsyncEngine向けDSN."""
         return self._to_async_dsn(self.database_url)
 
     def async_database_url_for(self, environment: str) -> str:
-        """指定ENVIRONMENTのAsyncEngine向け接続文字列."""
         return self._to_async_dsn(str(self._database_url_for(environment)))
 
     @property
-    def async_test_database_url(self) -> str | None:
-        """テスト用DBのAsyncEngine向け接続文字列."""
-        try:
-            return self.async_database_url_for("TEST")
-        except ValueError:
-            return None
+    def async_test_database_url(self) -> str:
+        if self.database_url_test is None:
+            raise ValueError("DATABASE_URL_TESTが設定されていません")
+        return self._to_async_dsn(str(self.database_url_test))
 
     @property
     def alpaca_credentials(self) -> tuple[str | None, str | None]:
-        """Alpaca API向け認証情報をタプルで返却."""
         api_key = self.alpaca_api_key.get_secret_value() if self.alpaca_api_key else None
         secret_key = self.alpaca_secret_key.get_secret_value() if self.alpaca_secret_key else None
         return api_key, secret_key
@@ -118,5 +123,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """設定値をシングルトンとして扱う."""
-    return Settings()  # type: ignore[call-arg]
+    """設定インスタンスをシングルトンとして取得する."""
+    return Settings()

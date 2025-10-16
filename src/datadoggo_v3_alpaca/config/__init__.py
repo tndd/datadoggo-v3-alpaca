@@ -1,4 +1,4 @@
-"""設定モジュールの公開API."""
+"""設定モジュールを公開します."""
 
 from datadoggo_v3_alpaca.config.settings import Settings, get_settings
 

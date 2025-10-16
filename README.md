@@ -1,22 +1,38 @@
-## datadoggo-v3-alpaca
+# datadoggo-v3-alpaca
 
-Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション・ニュースのヒストリカルデータを取得し、PostgreSQLへ保存するツール群です。
+Alpaca SDK (`alpaca-py`) を利用して株式・暗号資産・オプション・ニュースのヒストリカルデータを取得し、PostgreSQL (`alpaca` スキーマ) へ保存するツール群です。バッチ実行や将来的なAPI化を見据えて、取得→整形→UPSERTまでをサービスレイヤで統一しています。
 
-### セットアップ
+## セットアップ
 1. `.env.example` をコピーして `.env` を作成する
-   - `ENVIRONMENT` を `TEST` / `STG` などに設定（未指定時は自動的に `TEST` を使用）
-   - `DATABASE_URL_TEST`、必要に応じて `DATABASE_URL_STG` / `DATABASE_URL_PROD` を設定
-   - Alpaca APIキー（`ALPACA_API_KEY` / `ALPACA_SECRET_KEY`）を登録
+   - `DATABASE_URL_TEST` は必須。ENVIRONMENTを指定しない場合、この値が `DATABASE_URL` として扱われる
+   - ステージングや本番を利用する場合は `DATABASE_URL_STG` / `DATABASE_URL_PROD` を設定し、実行時に `ENVIRONMENT=STG` などを付与
+   - 必要に応じて `ALPACA_API_KEY` / `ALPACA_SECRET_KEY`、デフォルト取得シンボル (`DEFAULT_*_SYMBOLS`) を設定
 2. 依存関係の同期: `uv sync`
+3. Postgresコンテナ (`postgres-docker`) を起動し、必要なら `personal_tracker_test` などのDBを作成
 
-### 実行例
-```bash
-uv run python -m datadoggo_v3_alpaca --kind stock --symbols AAPL,MSFT --timeframe 1Day --start 2024-09-01T00:00:00+00:00
-```
+## 使い方
+- 株式バー取得の例:
+  ```bash
+  uv run python -m datadoggo_v3_alpaca \
+      --kind stock \
+      --symbols AAPL,MSFT \
+      --timeframe 1Day \
+      --start 2024-09-01T00:00:00+00:00
+  ```
+- 暗号資産バーをステージング環境で取得する例:
+  ```bash
+  ENVIRONMENT=STG uv run python -m datadoggo_v3_alpaca --kind crypto --symbols BTC/USD --timeframe 1Hour
+  ```
+- 実行すると対象データが整形され、PostgreSQLの `alpaca` スキーマ配下へUPSERTされます。
 
-### テスト
+## 設定のポイント
+- `ENVIRONMENT` を指定しない場合は自動的に `TEST` とみなし、`DATABASE_URL_TEST` の内容が利用されます
+- `ENVIRONMENT=PROD` などを外部から付与すると、対応する `DATABASE_URL_*` で接続します (未設定の場合はエラー)
+- 取得するシンボルを `.env` の `DEFAULT_*_SYMBOLS` に記述しておけば、CLI引数を省略可能です
+
+## テスト
 ```bash
-uv run pytest
+uv run pytest     # DB未整備の場合はrepositoryテストがスキップされます
 uv run ruff check
 uv run pyright
 ```
